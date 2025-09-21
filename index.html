@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Downloader versi Zikri</title>
+  <style>
+    body {margin:0; padding:0; font-family:Arial,sans-serif; color:#fff; text-align:center; overflow-x:hidden;}
+    #bg-video {position:fixed; top:0; left:0; width:100vw; height:100vh; object-fit:cover; z-index:-1;}
+    .container {position:relative; z-index:2; background:rgba(0,0,0,0.65); padding:20px; margin:40px auto;
+      border-radius:15px; width:90%; max-width:420px; box-shadow:0 4px 15px rgba(0,0,0,0.5);}
+    h2 {color:yellow; margin-bottom:15px;}
+    input {width:100%; padding:10px; margin-bottom:15px; border:none; border-radius:10px;}
+    button {width:100%; padding:12px; margin:6px 0; border:none; border-radius:10px; font-weight:bold; cursor:pointer; font-size:15px;}
+    .download-btn {background:linear-gradient(to right,#ff0080,#7928ca);color:#fff;}
+    .foto-btn {background:linear-gradient(to right,#00c6ff,#0072ff);color:#fff;}
+    .musik-btn {background:linear-gradient(to right,#ff512f,#dd2476);color:#fff;}
+    .toggle-btn {background:#28a745;color:#fff;}
+    #preview {margin-top:20px; background:rgba(255,255,255,0.1); border-radius:10px; padding:10px; display:none;}
+    #preview img {max-width:100%; border-radius:10px; margin-bottom:10px;}
+    #title {font-weight:bold; margin-bottom:5px; color:#ffd700;}
+    #music {font-size:14px; color:#a0e6ff;}
+    #history {margin-top:20px; text-align:left; font-size:14px; background:rgba(255,255,255,0.1);
+      padding:10px; border-radius:10px; display:none;}
+    #history h3 {margin-top:0; color:#00ffea; text-align:center;}
+    .history-item {border-bottom:1px solid rgba(255,255,255,0.2); padding:5px 0;}
+    .clear-btn {background:#dc3545; color:#fff; font-size:13px; padding:6px 8px; border-radius:8px;
+      display:block; margin:10px auto; width:auto;}
+
+    /* Efek naga digital */
+    .dragon {
+      position: fixed;
+      top: 50%;
+      left: -200px;
+      width: 200px;
+      height: 200px;
+      background: url('https://i.ibb.co/VvZ3B8c/neon-dragon.png') no-repeat center/contain;
+      z-index: 9999;
+      animation: flyDragon 3s linear forwards;
+      pointer-events: none;
+    }
+    @keyframes flyDragon {
+      0%   { transform: translateY(-50%) translateX(0) rotate(0deg) scale(0.8);}
+      50%  { transform: translateY(-60%) translateX(50vw) rotate(10deg) scale(1);}
+      100% { transform: translateY(-50%) translateX(100vw) rotate(-15deg) scale(0.8);}
+    }
+  </style>
+</head>
+<body>
+  <video autoplay muted loop id="bg-video">
+    <source src="https://files.catbox.moe/a6ohhv.mp4" type="video/mp4">
+  </video>
+
+  <div class="container">
+    <h2>Downloader versi Zikri</h2>
+    <input type="text" id="link" placeholder="Tempel tautan TikTok di sini" oninput="updatePreview()">
+
+    <div id="preview">
+      <img id="thumbnail" src="" alt="Thumbnail">
+      <div id="title"></div>
+      <div id="music"></div>
+    </div>
+
+    <button class="download-btn" onclick="viewVideo()">Lihat Video</button>
+    <button class="foto-btn" onclick="downloadFotoHD()">Unduh Foto HD</button>
+    <button class="musik-btn" onclick="downloadMusik()">Download Musik</button>
+    <button class="toggle-btn" onclick="toggleSuara()">ON / OFF Suara</button>
+
+    <div id="history">
+      <h3>📜 Riwayat Unduhan</h3>
+      <div id="history-list"></div>
+      <button class="clear-btn" onclick="clearHistory()">Hapus Semua Riwayat</button>
+    </div>
+  </div>
+
+  <script>
+    const bgVideo = document.getElementById("bg-video");
+    let previewTimeout;
+    let lastData = null;
+
+    async function fetchTikTokData(url){
+      if(!url) return null;
+      try {
+        const res = await fetch("https://www.tikwm.com/api/?url="+encodeURIComponent(url));
+        const data = await res.json();
+        if(data.code===0) return data.data; else return null;
+      } catch(e){return null;}
+    }
+
+    async function updatePreview(){
+      const url=document.getElementById("link").value.trim();
+      const preview=document.getElementById("preview");
+      if(!url){preview.style.display="none";lastData=null;return;}
+      clearTimeout(previewTimeout);
+      previewTimeout=setTimeout(async()=>{
+        const data=await fetchTikTokData(url);
+        if(data){
+          lastData = data;
+          document.getElementById("thumbnail").src=data.cover_hd||data.cover||data.origin_cover;
+          document.getElementById("title").innerText=data.title||"Tanpa judul";
+          document.getElementById("music").innerText=data.music_info?.title
+            ? `🎵 ${data.music_info.title} - ${data.music_info.author}` : "Tidak ada info musik";
+          preview.style.display="block";
+        } else {preview.style.display="none"; lastData=null;}
+      },500);
+    }
+
+    function addToHistory(type,title,url){
+      let history = JSON.parse(localStorage.getItem("downloadHistory")||"[]");
+      history.unshift({type,title,url,date:new Date().toLocaleString()});
+      localStorage.setItem("downloadHistory",JSON.stringify(history));
+      showHistory();
+    }
+
+    function showHistory(){
+      const container=document.getElementById("history");
+      const list=document.getElementById("history-list");
+      let history = JSON.parse(localStorage.getItem("downloadHistory")||"[]");
+      list.innerHTML="";
+      if(history.length===0){container.style.display="none";return;}
+      container.style.display="block";
+      history.forEach(item=>{
+        const div=document.createElement("div");
+        div.className="history-item";
+        div.innerHTML=`<strong>[${item.type}]</strong> ${item.title||'Tanpa judul'}<br>
+        <a href="${item.url}" target="_blank" style="color:#00ffea;">Lihat</a> - <small>${item.date}</small>`;
+        list.appendChild(div);
+      });
+    }
+
+    function clearHistory(){
+      localStorage.removeItem("downloadHistory");
+      showHistory();
+    }
+
+    // ✨ Fungsi efek naga
+    function showDragon(){
+      const dragon = document.createElement("div");
+      dragon.className = "dragon";
+      document.body.appendChild(dragon);
+      setTimeout(()=>dragon.remove(),3000);
+    }
+
+    function viewVideo(){
+      if(!lastData){alert("❌ Masukkan link dulu!");return;}
+      addToHistory("Video",lastData.title,lastData.play);
+      window.open(lastData.play,"_blank");
+      showDragon();
+    }
+
+    function downloadMusik(){
+      if(!lastData){alert("❌ Masukkan link dulu!");return;}
+      const a=document.createElement("a");
+      a.href=lastData.music;
+      a.download=(lastData.music_info?.title||"tiktok_music")+".mp3";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      addToHistory("Musik",lastData.music_info?.title,lastData.music);
+      showDragon();
+    }
+
+    function downloadFotoHD(){
+      if(!lastData){alert("❌ Masukkan link dulu!");return;}
+      const imgUrl=lastData.cover_hd||lastData.cover||lastData.origin_cover;
+      const a=document.createElement("a");
+      a.href=imgUrl;
+      a.download="tiktok_foto_hd.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      addToHistory("Foto","Foto TikTok HD",imgUrl);
+      showDragon();
+    }
+
+    function toggleSuara(){
+      bgVideo.muted=!bgVideo.muted;
+      alert(bgVideo.muted?"🔇 Suara dimatikan":"🔊 Suara dihidupkan");
+    }
+
+    showHistory();
+  </script>
+</body>
+</html>
